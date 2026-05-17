@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 模拟面试助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        #timerDisplay.warning { color: #f97316 !important; }
+        #timerDisplay.danger { color: #ef4444 !important; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800 p-4">
+    <div class="max-w-4xl mx-auto">
+        <header class="text-center py-6">
+            <h1 class="text-3xl font-bold text-slate-900">🤖 AI 模拟面试助手</h1>
+            <p class="text-slate-500 mt-1 text-sm">导入考题 → 语音作答 → AI 深度点评</p>
+        </header>
+
+        <div class="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+            <!-- 工具栏 -->
+            <div class="bg-slate-100 p-4 border-b flex items-center space-x-4">
+                <input type="file" id="pdfInput" accept=".pdf" class="hidden" onchange="uploadPDF()">
+                <button onclick="document.getElementById('pdfInput').click()"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium">
+                    📄 导入 PDF 题库
+                </button>
+                <div id="statusBadge"
+                    class="text-sm font-medium px-3 py-1 bg-white border rounded-full truncate flex-grow text-slate-600">
+                    等待导入PDF...
+                </div>
+            </div>
+
+            <!-- 内容区 -->
+            <div class="p-6">
+                <div id="displayArea"
+                    class="bg-slate-50 rounded-lg p-6 h-[500px] overflow-y-auto border whitespace-pre-wrap custom-scrollbar text-slate-700 leading-relaxed">
+                    请先点击上方按钮导入 PDF 题库。
+                </div>
+            </div>
+
+            <!-- 控制区 -->
+            <div class="p-6 border-t flex flex-col items-center">
+                <div id="timerDisplay" class="text-5xl font-mono font-bold text-slate-800 mb-6">00:00</div>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button id="btnStart" onclick="apiCall('/api/start')" disabled
+                        class="disabled:opacity-40 bg-green-500 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-green-600 transition">
+                        ▶ 开始答题
+                    </button>
+                    <button id="btnRepeat" onclick="apiCall('/api/repeat')" disabled
+                        class="disabled:opacity-40 bg-amber-500 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-amber-600 transition">
+                        🔁 重复题干
+                    </button>
+                    <button id="btnNext" onclick="apiCall('/api/next')" disabled
+                        class="disabled:opacity-40 bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-indigo-600 transition">
+                        ⏭ 下一题
+                    </button>
+                    <button id="btnEnd" onclick="apiCall('/api/end')" disabled
+                        class="disabled:opacity-40 bg-red-500 text-white px-6 py-3 rounded-xl font-bold text-lg hover:bg-red-600 transition">
+                        ⏹ 结束答题
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /** 上传 PDF 文件并触发服务端解析 */
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdfInput');
+            if (fileInput.files.length === 0) return;
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            document.getElementById('displayArea').innerText =
+                "正在解析 PDF 题库，请耐心等候（可打开浏览器控制台查看详细日志）...";
+
+            try {
+                const response = await fetch('/api/prepare', { method: 'POST', body: formData });
+                const result = await response.json();
+                if (!response.ok) {
+                    alert("导入失败：" + (result.error || "未知错误"));
+                }
+            } catch (err) {
+                alert("网络错误：" + err.message);
+            }
+            fileInput.value = '';
+        }
+
+        /** 通用 API 调用 */
+        async function apiCall(endpoint) {
+            await fetch(endpoint, { method: 'POST' });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        /** 每秒轮询服务端状态，更新 UI */
+        setInterval(async () => {
+            try {
+                const res = await fetch('/api/state');
+                const data = await res.json();
+
+                document.getElementById('statusBadge').innerText = data.display_message;
+
+                const displayArea = document.getElementById('displayArea');
+
+                if (data.eval_status === "done") {
+                    let content =
+                        '<b class="text-blue-700">【面试题干回顾】</b><br>';
+                    data.questions.forEach((q, i) => {
+                        content += `第${i + 1}题：${q}<br>`;
+                    });
+                    content +=
+                        '<hr class="my-4"><b class="text-green-700">【AI 深度点评报告】</b><br>' +
+                        (data.eval_result || '').replace(/\n/g, '<br>');
+                    displayArea.innerHTML = content;
+                } else if (data.eval_status === "running") {
+                    displayArea.innerText = data.display_message;
+                } else if (data.is_practicing) {
+                    displayArea.innerText =
+                        `正在练习：第 ${data.current_q_index + 1} / ${data.total_q} 题\n\n请听题并开始作答...`;
+                } else if (data.total_q > 0 && data.eval_status === "idle") {
+                    displayArea.innerText =
+                        `题库加载成功，共 ${data.total_q} 题。\n请点击「▶ 开始答题」。`;
+                }
+
+                // 计时器
+                const timerEl = document.getElementById('timerDisplay');
+                const elapsed = data.elapsed_time;
+                timerEl.innerText = formatTime(elapsed);
+                timerEl.className = "text-5xl font-mono font-bold mb-6";
+                if (elapsed >= 1020) {
+                    timerEl.classList.add('warning');
+                }
+                if (elapsed >= 1200) {
+                    timerEl.classList.add('danger');
+                }
+
+                // 按钮状态
+                document.getElementById('btnStart').disabled =
+                    data.is_practicing || data.total_q === 0 || data.eval_status === "running";
+                document.getElementById('btnRepeat').disabled = !data.is_practicing;
+                document.getElementById('btnNext').disabled = !data.is_practicing;
+                document.getElementById('btnEnd').disabled = !data.is_practicing;
+            } catch (e) {
+                // 静默处理轮询错误
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
