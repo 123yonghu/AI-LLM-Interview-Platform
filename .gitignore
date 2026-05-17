@@ -1,0 +1,38 @@
+# ========== 环境变量（含 API Key） ==========
+.env
+
+# ========== Python ==========
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ========== 虚拟环境 ==========
+.venv/
+venv/
+env/
+
+# ========== IDE ==========
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# ========== 运行时数据 ==========
+records/
+pdfs/
+pdfs_txt/
+
+# ========== 临时文件 ==========
+*.wav
+*.mp3
+*.log
+temp/
+
+# ========== OS ==========
+.DS_Store
+Thumbs.db
