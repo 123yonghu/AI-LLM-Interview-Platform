@@ -32,10 +32,8 @@
 ## 📸 界面预览
 
 ### 答题界面
-![答题界面](docs/screenshot-main.jpg)
+<img width="703" height="667" alt="Snipaste_2026-05-17_13-46-41" src="https://github.com/user-attachments/assets/8ba1fcb9-52d6-4a43-b43b-d8e90e867e6d" />
 
-### AI 评估报告
-![AI 评估报告](docs/screenshot-eval.jpg)
 
 ## 🏗️ 技术架构
 
